@@ -15,8 +15,8 @@ import numpy as np
 # In[2]:
 
 
-filepath = "/Users/hanna/Documents/ANLY590/590-CODES/DATA/weight.json"
-# filepath = "./DATA/weight.json"
+# filepath = "/Users/hanna/Documents/ANLY590/590-CODES/DATA/weight.json"
+filepath = "./DATA/weight.json"
 
 f = open(filepath,)
 data = json.load(f)
@@ -29,7 +29,7 @@ df = pd.DataFrame(data)
 # In[3]:
 
 
-my_filepath = "/Users/hanna/Documents/ANLY590/590-CODES/DATA/weight.json"
+# my_filepath = "/Users/hanna/Documents/ANLY590/590-CODES/DATA/weight.json"
 
 
 # In[ ]:
