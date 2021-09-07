@@ -32,7 +32,8 @@ echo "0) The command 'sleep 5' pauses the script execution for 5 seconds"
 sleep 5  
 
 printf "\n1) Any command that can be excuted from the command line can also be excuted sequentially in an executable file known as a shell script, usually with the extension '.sh'. To make the file executable, you need to change the file permission using the command 'chmod a+x file_name.sh' \n"
-sleep 10
+sleep 10    #pause script execution for 10 seconds 
+
 
 echo "
 2) we can define variables 'sleep_time=5'
@@ -46,7 +47,8 @@ sleep $sleep_time
 
 printf "\n 4) In linux, folders are called directories, the entire linux system is stored in a hieracrhical directory tree, to see where you are use pwd which stands for print working directory \n\n"
 
-pwd
+pwd   #present working directory
+
 
 sleep $sleep_time
 
@@ -54,7 +56,7 @@ SCRIPT_LOC=${PWD} #SAVE ABSOLUTE PATH TO L1.1.4-LinuxBasics.sh SHELL SCRIPT TO F
 
 
 DATE=$(date -Is) #save date as variable $(date +"%Y-%m-%d")
-printf "\n DATE="$DATE"\n"
+printf "\n DATE="$DATE"\n"    # look at date
 
 sleep $sleep_time
 
@@ -73,15 +75,15 @@ pwd
 ls 
 
 echo "A------------------------"; sleep $sleep_time
-cd /home/
+cd /home/   # change to home directory
 pwd
 ls 
 
 echo "B------------------------"; sleep $sleep_time
-cd ~/; 
+cd ~/;      # change to base directory
 pwd
 echo "----------"
-ls -ltr 
+ls -ltr     # list
 echo "----------"
 ls *;
 echo "----------"
@@ -101,8 +103,8 @@ ls
 
 echo "B------------------------"; sleep $sleep_time
 
-rm -rf example_directory
-mkdir example_directory
+rm -rf example_directory      
+mkdir example_directory      # make new directory
 ls
 
 
@@ -120,9 +122,9 @@ echo "im writing to a file" > file1.dat
 echo "hello computer" > file2.dat
 echo "hello human" >> file2.dat
 ls 
-more file*.dat
+more file*.dat    
 nano file*.dat
-rm file1.dat
+rm file1.dat      
 ls
 more file2.dat
 > file2.dat
