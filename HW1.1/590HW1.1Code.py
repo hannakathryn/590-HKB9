@@ -1,367 +1,157 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# Hanna Born,
+# ANLY 590 HW1.1
+# 
+# References:  code files provided on class github at https://github.com/jh2343/590-CODES
+# 
+# I struggled with the assignment initially using OOP and class structure. My submission below reflects reworking through the regression workflow according to the basic structure code example provided on the class github which helped my understanding of this task significantly.
+
+# In[31]:
 
 
+# imports
 import json
 import pandas as pd
 import sklearn
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.optimize import minimize
+from sklearn.model_selection import train_test_split
 
+filepath = '/Users/hanna/Documents/ANLY590/590-CODES/DATA/weight.json'
+# filepath='weight.json'
 
-# In[2]:
-
-
-# filepath = "/Users/hanna/Documents/ANLY590/590-CODES/DATA/weight.json"
-filepath = "./DATA/weight.json"
-
+# read file into dictionary
 f = open(filepath,)
 data = json.load(f)
 f.close()
-df = pd.DataFrame(data)
-# data = np.array(data)
-# labels = np.array('is_adult')
+
+# ---- MODEL SELECTION ---------------------------------------------------------
+# choose model type by uncommenting
+# model_type="linear";   NFIT=2; xcol=1; ycol=2;       # age vs. weight (linear)
+model_type="logistic"; NFIT=4; xcol=1; ycol=2;       # age vs weight (logistic)
+# model_type="logistic";   NFIT=4; xcol=2; ycol=0;     # weight vs. adult/child
+# ------------------------------------------------------------------------------
+
+# define a function to calculate mse for calculating test/validation losses
+def get_mse(pred, actu): 
+    return (np.mean((pred-actu)**2.0)) 
 
 
-# In[3]:
+X=[]; # initialize matrix to make from input
+for key in data.keys():  # loop through dictionary to select desired keys
+    if(key in ['x','is_adult','y']): X.append(data[key])
+X=np.transpose(np.array(X)) # rows = sample_dimension
 
+# select training columns corresponding to model type selected above
+# required columns for each model specified in code line for model selection above
+x=X[:,xcol]
+y=X[:,ycol]
 
-# my_filepath = "/Users/hanna/Documents/ANLY590/590-CODES/DATA/weight.json"
+if(model_type=="linear"): # linear model fit only to children (age < 18)
+    y=y[x[:]<18]
+    x=x[x[:]<18] 
 
-
-# In[ ]:
-
-
-### Defining the problem and assembling a dataset (I already did this for you weight.json)
-# Make a class called “Data” which 
-    # reads the json, partitions the data, and has functions (methods) to
-    # visualize data (similar to lecture example)
     
-class Data:
+# normalize
+# this helps with selecting initial guess since we know the scale
+x=(x-np.mean(x))/np.std(x)
+y=(y-np.mean(y))/np.std(y) 
+
+
+# partition into train and test data
+x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2)
+
+
+# models
+def model(x,p):
+    if(model_type=="linear"):
+        return  p[0]*x+p[1]  
+    if(model_type=="logistic"):
+        return  p[0]+p[1]*(1.0/(1.0+np.exp(-(x-p[2])/(p[3]+0.01))))
+
+# track and define globally for use in plotting
+iteration=0; iterations=[]; loss_train=[];  loss_val=[] 
+
+def loss(p): # loss function
+    global iterations,loss_train,loss_val,iteration
+
+    # training loss (MSE)
+    yp=model(x_train,p) # model predictions for given parameterization p
+    training_loss = get_mse(yp, y_train)
+
+    # validation loss (MSE)
+    yp=model(x_test,p) #model predictions for given parameterization p
+    validation_loss= get_mse(yp, y_test)
+
+    # look at training and validation loss for every 50th iteration
+    if(iteration==0):
+        print("iteration \t training_loss \t validation_loss") 
+    if(iteration%50==0):
+        print(iteration,"\t",training_loss,"\t",validation_loss) 
     
-    filepath = "./DATA/weight.json"
-    # filepath = "/Users/hanna/Documents/ANLY590/590-CODES/DATA/weight.json"
-    
-    def read_json_file(self, filepath): # read data
-        f = open(filepath,)
-        data = json.load(f)
-        f.close()
-        df = pd.DataFrame(data)
-        # data = np.array(data)
-        # labels = np.array(labels)
-    
-    def __init__(self):
-        self.age = data[0]
-        self.weight = data[1]
-        self.is_adult = data[2]
-        
-    
-
-
-# In[ ]:
-
-
-### Choosing a measure of success
-# For this exercise use mean square error (MSE) or sum of square error (SSE) as the loss function 
-
-
-# In[6]:
-
-
-plt.scatter(data= df, x='x', y='y')
-plt.xlabel("age(years)")
-plt.ylabel("weight(lb)")
-plt.show()
-
-
-# In[7]:
-
-
-plt.scatter(data= df, x='y', y='is_adult')
-plt.xlabel("weight(lb)")
-plt.ylabel("ADULT=1 CHILD=0")
-plt.show()
-
-
-# In[40]:
-
-
-### Preparing your data
-# Normalize inputs (features) and outputs as needed using “standard scalar”
-# X_i --> X~_i = (x_i - mu_x)/sigma_x
-df['x_norm']=(df['x']-df['x'].mean())/df['x'].std()
-df['y_norm']=(df['y']-df['y'].mean())/df['y'].std()
-
-
-# In[41]:
-
-
-### Deciding on an evaluation protocol
-# For this exercise just break the data into 80% training 20% test
-from sklearn.model_selection import train_test_split
-# x_train,x_test,y_train,y_test = train_test_split(x,y,test_size=0.2)
-train_df, test_df = train_test_split(df,test_size=0.2)
-
-
-# In[13]:
-
-
-### Developing a model
-# Linear regression (fit to age<18)
-# reference: https://medium.com/geekculture/linear-regression-from-scratch-in-python-without-scikit-learn-a06efe5dedb6
-
-df_child = df[df['x']<18]
-mean_x=df_child['x'].mean()
-mean_y=df_child['y'].mean()
-
-m = len(df_child['x']) # total no.of input values
-
-# using the formula to calculate m & c ... for when x (age) is under 18
-numer = 0
-denom = 0
-for i in range(m):
-    numer += (df_child['x'][i] - mean_x) * (df_child['y'][i] - mean_y)
-    denom += (df_child['x'][i] - mean_x) ** 2
-m = numer / denom
-c = mean_y - (m * mean_x)
-
-print (f'm = {m} \nc = {c}')
-
-
-# In[27]:
-
-
-# calculating line values x and y
-x = np.linspace (0, 100, 100)
-y = c + m * x
-
-plt.plot(x, y,c="red",label='Linear Model')
-plt.scatter(train_df['x'], train_df['y'], label='train set')
-plt.scatter(test_df['x'], test_df['y'], c="orange", label='test set')
-
-plt.xlabel('age(years)')
-plt.ylabel('weight(lb)')
-plt.legend()
-plt.ylim(0,250)
-plt.show()
-
-
-# In[26]:
-
-
-# calculating line values x and y
-x = np.linspace (0, 100, 100)
-y = c + m * x
-
-plt.plot(x, y,c="red",label='Linear Model')
-plt.scatter(train_df['x'], train_df['y'], label='train set')
-plt.scatter(test_df['x'], test_df['y'], c="orange", label='test set')
-
-plt.xlabel('age(years)')
-plt.ylabel('weight(lb)')
-plt.legend()
-plt.ylim(0,180)
-plt.xlim(0,18)
-plt.show()
-
-
-# In[28]:
-
-
-# -----------------------------------------------------------------------------
-# # For example, for the case of linear regression, please do the following
-
-# # 1) Define a model function that takes a vector x and vector p. 
-# #        M(x,p) where p=[b,m]=[p[0],p[1]] and returns p[0]+p[1]*x
-# #        NFIT=2
-
-# def Mod1(x, p):
-#     p=[b,m]=[p[0],p[1]]
-#     return p[0]+p[1]*x
-
-# NFIT=2
-
-# # 2) Define an objective (loss) function that takes only a vector of 
-# #    model parameters p and returns the loss (mean square error MSE)
-# #        def loss(p):
-# #             yp=M(x,p) 
-# #             ..... 
-# #             loss=MSE
-# #             return loss
-# #       -This should be general, p could be m,b for linear regression, 
-# #        or 4 parameters for logistic regression. 
-
-# def loss(p):
-#     yp = Mod1(x, p)
-#     MSE = np.square(np.subtract(Y_true,Y_pred)).mean()
-#     # or # mse = np.sum((y_pred - y_actual)**2)
-#     loss = MSE
-#     return loss
-
-# # 3) use scipy optimizer to minimize the loss function and obtain the optimal m,b parameters 
-# #  #RANDOM INITIAL GUESS FOR FITTING PARAMETERS
-# po=np.random.uniform(0.5,1.,size=NFIT)
-# #  #TRAIN MODEL USING SCIPY OPTIMIZER
-# from scipy.optimize import minimize
-# # res = minimize(loss, po, method=OPT_ALGO, tol=1e-15)
-# res = minimize(loss, po, method="Nelder-Mead", tol=1e-15)
-# popt=res.x
-# print("OPTIMAL PARAM:",popt)
-# -----------------------------------------------------------------------------
-
-
-# In[30]:
-
-
-# B) To visualize training/test loss as a function of the optimizer iterations, 
-# you can simply define 3 global arrays that update every time SciPy evaluates 
-# the loss function. And then plot these at the end 
-
-#SAVE HISTORY FOR PLOTTING AT THE END
-iterations=[]; loss_train=[];  loss_val=[]
-
-iteration=0
-def loss(p):
-    global iteration,iterations,loss_train,loss_val
+    #RECORD FOR PLOTING
     loss_train.append(training_loss)
     loss_val.append(validation_loss)
     iterations.append(iteration)
     iteration+=1
 
+    return training_loss
 
-# In[31]:
+initial_guess=np.random.uniform(0.1,1.,size=NFIT) # initial random guess
 
+# use minimize to train model and print out optimal parameters
+res = minimize(loss, initial_guess, method='BFGS', tol=1e-15)
+popt=res.x
+print("optimal parameters:",popt)
 
-# C) Since you have to train 3 models, you might want to consider creating 3 python scripts, 
-# one for each model. It is possible to do it all in one python file but it requires more scripting. 
-# You could get the entire process dialed in and working for linear regression, 
-# then cp this file to a new one, modify which data it uses, and change the model to output the 
-# logistic (sigmoid) function instead of a linear function. Or combine both and have a flag 
-# to specify which you want to use. 
+# predictions
+xm=np.array(sorted(x_train))
+yp=np.array(model(xm,popt))
 
-def model(x,p):
-    global model_type
-    if(model_type=="linear"):
-        return p[0]*x+p[1]  
-    if(model_type=="logistic"):
-        return p[0]+p[1]*(1.0/(1.0+np.exp(-(x-p[2])/(p[3]+0.00001))))
+# reverse the normalization to have predictions in real scale
+def unnorm_x(x): 
+    return np.std(x)*x+np.mean(x)  
+def unnorm_y(y): 
+    return np.std(y)*y+np.mean(y) 
 
+if(True): # function plots of real scale (un-normalized)
+    fig, ax = plt.subplots()
+    ax.plot(unnorm_x(x_train), unnorm_y(y_train), 'o', label='train')
+    ax.plot(unnorm_x(x_test), unnorm_y(y_test), 'x', label='test')
+    ax.plot(unnorm_x(xm),unnorm_y(yp), '-', label='Model')
+    plt.xlabel('x')
+    plt.ylabel('y')
+    plt.legend()
+    plt.title("Function Plot")
+    plt.show()
 
-# In[35]:
+if(True): # parity plot y actual predicted
+    fig, ax = plt.subplots()
+    ax.plot(model(x_train,popt), y_train, 'o', label='train')
+    ax.plot(model(x_test,popt), y_test, 'x', label='test')
+    plt.xlabel('y predicted')
+    plt.ylabel('y actual')
+    plt.legend()
+    plt.title("Parity Plot")
+    plt.show()
 
-
-# D) To undo the normalization simply rearrange the normalization formula
-# Assume that you normalize both input and output data 
-
-# The model makes predictions in the x' y' space 
-# (i.e. for a given x' the model outputs M(x'|P)=ypred' (where ypred' is in y' space)) 
-# Then convert back to the original space by inverting the normalization formula 
-df['x_undo_norm'] = (df['x_norm']*df['x'].std()) + df['x'].mean() # should be same as original 'x' column preserved
-# df['y_pred_undo_norm'] = (df['y_norm']*df['y_pred'].std()) + df['y'].mean()
-
-
-# In[42]:
-
-
-train_df.head()
-
-
-# In[45]:
-
-
-# Logistic Regression: weight
-# reference: https://financial-engineering.medium.com/logistic-regression-without-sklearn-107e9ea9a9b6
-def sigmoid(x): # activation function
-    return 1/(1+np.exp(-x))
-
-def sq_loss(y_pred, target): # loss function
-    return np.mean(pow((y_pred-target),1))
-
-X_tr, y_tr = train_df.x, train_df['is_adult']
-X_te, y_te = test_df.x, test_df['is_adult']
-
-
-# In[49]:
-
-
-lr = 0.01
-W = np.random.uniform(0,1)
-b=0.1
-
-for i in range(1000):
-    z = np.dot(X_tr, W) + b
-
-y_pred = sigmoid(z)
-
-l = sq_loss(y_pred, y_tr)
-
-gradient_W = np.dot((y_pred - y_tr).T, X_tr)/X_tr.shape[0]
-gradient_b = np.mean(y_pred-y_tr)
-
-W = W-lr * gradient_W
-b = b - lr * gradient_b
-
-
-# In[108]:
-
-
-# Logistic Regression: adult/child
-from   scipy.optimize import curve_fit
-
-x = X_tr
-yn = y_tr
-
-##FITTING MODEL
-def model(x,p1,p2,p3,p4,p5,p6,p7):
-    return p1*np.exp(-((x-p2)/p3)**2.0)+p4*np.exp(-((x-p5)/p6)**2.0)+p7
-popt, pcov = curve_fit(model, x, yn) #,[0.1,0.1,0.1])
-
-fig, ax = plt.subplots()
-ax.plot(train_df['x'], train_df['y'], 'o', label='train')
-ax.plot(test_df['x'], test_df['y'], 'o', label='test')
-ax.plot(X_tr, y_pred, 'o', label='pred')
-
-ax.plot(x, model(x, *popt), 'r-', label="Model")
-
-plt.show()
-
-
-# In[69]:
-
-
-z[-1]
-
-
-# In[72]:
-
-
-# calculating line values x and y
-plt.plot(y,c="red",label='Linear Model')
-plt.scatter(train_df['x'], train_df['y'], label='train set')
-plt.scatter(test_df['x'], test_df['y'], c="orange", label='test set')
-
-plt.xlabel('age(years)')
-plt.ylabel('weight(lb)')
-plt.legend()
-plt.ylim(0,250)
-plt.show()
+if(True): # training and validation loss through iterations
+    fig, ax = plt.subplots()
+    ax.plot(iterations, loss_train, '.', label='training loss')
+    ax.plot(iterations, loss_val, '.', label='validation loss')
+    plt.xlabel('iteration')
+    plt.ylabel('loss')
+    plt.legend()
+    plt.title("Losses")
+    plt.show()
 
 
 # In[ ]:
 
 
-# After training (see next slide), Generate plots similar to the following
-# Use SciPy optimizer to train the parameters (not SciPy curve fit)
-#      (similar to in D1.1.2-SciPy-SINGLE-VARIABLE-OPTIMIZER.py)
-# Train 3 models, one for each plot in the previous slide
-# Visualize your results
-#    make at least three plots similar to those shown on the last slide
 
-# skip the last 2 steps ... these only apply for complex models such as ANN
-#    as well as a parity plot that plots the model predictions yp as a function of data y
-#    Unnormalized the model output so it can predict weight(age) to predict age(weight) rather than the
-#      normalized output (see below)
 
