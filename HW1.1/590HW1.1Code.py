@@ -6,7 +6,9 @@
 # 
 # References:  code files provided on class github at https://github.com/jh2343/590-CODES
 # 
-# I struggled with the assignment initially using OOP and class structure. My submission below reflects reworking through the regression workflow according to the basic structure code example provided on the class github which helped my understanding of this task significantly.
+# I struggled with the assignment initially using OOP and class structure. My submission below 
+# reflects reworking through the regression workflow according to the basic structure code example
+# provided on the class github which helped my understanding of this task significantly.
 
 # In[31]:
 
@@ -21,8 +23,8 @@ import numpy as np
 from scipy.optimize import minimize
 from sklearn.model_selection import train_test_split
 
-filepath = '/Users/hanna/Documents/ANLY590/590-CODES/DATA/weight.json'
-# filepath='weight.json'
+# filepath = '/Users/hanna/Documents/ANLY590/590-CODES/DATA/weight.json'
+filepath='weight.json'
 
 # read file into dictionary
 f = open(filepath,)
