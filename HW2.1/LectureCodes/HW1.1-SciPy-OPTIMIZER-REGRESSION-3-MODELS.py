@@ -247,3 +247,5 @@ for my_model in [1 ,2, 3]:
 		plt.ylabel('loss', fontsize=18)
 		plt.legend()
 		plt.show()
+
+# I HAVE WORKED THROUGH THIS EXAMPLE AND UNDERSTAND EVERYTHING THAT IT IS DOING
