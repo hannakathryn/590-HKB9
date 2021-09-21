@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[ ]:
-
-
 # Hanna Born,
 # ANLY 590 HW2.1
 
@@ -11,10 +8,6 @@
 # code files provided on class github at https://github.com/jh2343/590-CODES
 # https://towardsdatascience.com/linear-regression-derivation-d362ea3884c2
 # http://pillowlab.princeton.edu/teaching/mathtools16/slides/lec10_LeastSquaresRegression.pdf
-
-
-# In[ ]:
-
 
 import numpy as np
 import matplotlib
@@ -31,7 +24,15 @@ X_KEYS = ['x']
 Y_KEYS = ['y'] #'is_adult'
 OPT_ALGO='BFGS'
 
+#SAVE HISTORY FOR PLOTTING AT THE END
+epoch=1; epochs=[]; loss_train=[];  loss_val=[]
+
+# ---- PARADIGM SELECTION ------------------------------------------------------
 PARADIGM='batch'
+#PARADIGM='mini-batch'
+#PARADIGM='stochastic'
+# ------------------------------------------------------------------------------
+
 # ---- MODEL SELECTION ---------------------------------------------------------
 # choosing second logistic model for columns corresponding to age vs. weight relationship
 # choose model type by uncommenting
@@ -127,18 +128,49 @@ def optimizer(f,xi, algo='GD', LR=0.01):
 	max_iter=5000		#MAX NUMBER OF ITERATION
 	tol=10**-10			#EXIT AFTER CHANGE IN F IS LESS THAN THIS 
 	NDIM=len(xi)		#DIMENSION OF OPTIIZATION PROBLEM
+	#ICLIP=False
 
+	# hyperparameter tuning for stochastic
+	if(PARADIGM=='stochastic'):
+		LR=0.002
+		max_iter=25000
+		#ICLIP=True
+
+        
 	#OPTIMIZATION LOOP
 	while(iteration<=max_iter):
 
 		#-------------------------
-		#DATASET PARITION BASED ON TRAINING PARADIGM
+		#DATASET PARTITION BASED ON TRAINING PARADIGM
 		#-------------------------
 		if(PARADIGM=='batch'):
 			if(iteration==1): index_2_use=train_idx
 			if(iteration>1):  epoch+=1
-		else:
-			print("REQUESTED PARADIGM NOT CODED"); exit()
+                
+		if(PARADIGM=='mini-batch'): # for mini-batch use a 0.5 batch size
+			if(iteration==1):
+				# break data-set into two chunks
+				batch1 = train_idx[:len(train_idx)//2]
+				batch2 = train_idx[len(train_idx)//2:]        
+				if(iteration%2==0): # use batch 1
+					index_2_use=batch1
+				else: # use batch 2
+					index_2_use=batch2
+			if(iteration>1):  epoch+=1
+            
+		if(PARADIGM=='stochastic'):   
+			if(iteration==1): # if on first iteration use the first data point
+				index_2_use=0
+			else:
+				if(index_2_use==train_idx.shape[0]):
+				# or if(index_2_use==len(train_idx)):
+					index_2_use=0 # reset back to the beginning
+				else:
+					index_2_use+=1 # otherwise increment it         
+
+
+# 		else:
+# 			print("REQUESTED PARADIGM NOT CODED"); exit()
 
 		#-------------------------
 		#NUMERICALLY COMPUTE GRADIENT 
@@ -158,13 +190,22 @@ def optimizer(f,xi, algo='GD', LR=0.01):
 			df_dx[i]=grad_i 
 			
 		#TAKE A OPTIMIZER STEP
-		if(algo=="GD"):  xip1=xi-LR*df_dx 
-		if(algo=="MOM"): print("REQUESTED ALGORITHM NOT CODED"); exit()
+		if(algo=="GD"):  xip1=xi-LR*df_dx
+		# fill in GD+momentum ... same formula as above + one more term for momentum
 
+		# momentun includes one more term momentum: alpha (exponential decay factor)*change
+		dx_m1=0
+		alpha = 0.1        
+		if(algo=="MOM"):  xip1=xi-LR*df_dx+alpha*dx_m1
+            
+		# EXTRA CREDIT
+		if(algo=="RMSprop"): print("REQUESTED ALGORITHM (RMSprop) NOT CODED"); exit()
+		if(algo=="ADAM"): print("REQUESTED ALGORITHM (ADAM) NOT CODED"); exit()
+		if(algo=="Nelder-Mead"): print("REQUESTED (Nelder-Mead) ALGORITHM NOT CODED"); exit()
 
 		if(iteration==0):
 			print("iteration \t epoch \t MSE_T \t MSE_V")
-		if(iteration%250==0):
+		if(iteration%250==0): # print info for every 250th iteration
 			print(iteration,"	",epoch,"	",MSE_T,"	",MSE_V)
 
 		#REPORT AND SAVE DATA FOR PLOTTING
@@ -197,8 +238,9 @@ po=np.random.uniform(2,1.,size=NFIT)
 
 #TRAIN MODEL USING OPTIMIZER(MINIMIZER)
 # have the optimizer take the loss function as an argument as well as various default options
-popt=optimizer(loss,po)
-print("OPTIMAL PARAM:",p_final)
+#popt=optimizer(loss,po)
+popt = optimizer(loss, po, algo='MOM')
+print("OPTIMAL PARAM:",popt)
 predict(popt)
     
 
@@ -216,7 +258,7 @@ if(IPLOT):
 	ax.plot(unnorm_x(X[train_idx]), unnorm_y(Y[train_idx]), 'o', label='Training set')
 	ax.plot(unnorm_x(X[test_idx]), unnorm_y(Y[test_idx]), 'x', label='Test set')
 	ax.plot(unnorm_x(X[val_idx]), unnorm_y(Y[val_idx]), '*', label='Validation set')
-	ax.plot(unnorm_x(x[train_idx]),unnorm_y(YPRED_T), '.', c='red', label='Model')
+	ax.plot(unnorm_x(X[train_idx]),unnorm_y(YPRED_T), '.', c='red', label='Model')
 	plt.xlabel('x', fontsize=18)
 	plt.ylabel('y', fontsize=18)
 	plt.legend()
@@ -241,4 +283,3 @@ if(IPLOT):
 	plt.ylabel('loss', fontsize=18)
 	plt.legend()
 	plt.show()
-
