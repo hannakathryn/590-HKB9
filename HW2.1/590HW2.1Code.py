@@ -198,7 +198,7 @@ def optimizer(f,xi, algo='GD', LR=0.01):
 		alpha = 0.1        
 		if(algo=="MOM"):  xip1=xi-LR*df_dx+alpha*dx_m1
             
-		# EXTRA CREDIT
+		# EXTRA CREDIT ... incomplete, will revisit later time-permitting
 		if(algo=="RMSprop"): print("REQUESTED ALGORITHM (RMSprop) NOT CODED"); exit()
 		if(algo=="ADAM"): print("REQUESTED ALGORITHM (ADAM) NOT CODED"); exit()
 		if(algo=="Nelder-Mead"): print("REQUESTED (Nelder-Mead) ALGORITHM NOT CODED"); exit()
