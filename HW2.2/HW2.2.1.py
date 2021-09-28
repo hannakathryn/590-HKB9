@@ -1,54 +1,72 @@
-#--------------------------------
-# UNIVARIABLE REGRESSION EXAMPLE
-#--------------------------------
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Sep 28 00:04:08 2021
+
+@author: hanna
+"""
+
+
+# Hanna Born,
+# ANLY 590 HW2.2.1
+
+# References:
+# code files provided on class github at https://github.com/jh2343/590-CODES
 
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 import json
+from   scipy.optimize import minimize
 
-#------------------------
-#CODE PARAMETERS
-#------------------------
+# #CASE 1: Comment/Uncomment accordingly -------------------------------------
+# INPUT_FILE='planar_x1_x2_y.json'
+# DATA_KEYS=['x1','x2','y']
+# X_KEYS = ['x1', 'x2']
+# Y_KEYS = ['y'] 
+# # choose model type by uncommenting
+# model_type="linear";   NFIT=3
+# # model_type="logistic"; NFIT=4
+# # --------------------------------------------------------------------------
 
-#USER PARAMETERS
+#CASE 2: Comment/Uncomment accordingly -------------------------------------
+INPUT_FILE='planar_x1_x2_x3_y.json'
+DATA_KEYS=['x1','x2','x3','y']
+X_KEYS = ['x1', 'x2', 'x3']
+Y_KEYS = ['y'] 
+# choose model type by uncommenting
+model_type="linear";   NFIT=4
+# model_type="logistic"; NFIT=4
+# --------------------------------------------------------------------------
+
+
+
+#USER PARAMETERS ---------------------
 IPLOT=True
+FILE_TYPE="json"
+OPT_ALGO='BFGS'
+# ------------------------------------
 
-
-PARADIGM='batch'
-
-model_type="linear"; NFIT=2; X_KEYS=['x1']; Y_KEYS=['y']
 
 #SAVE HISTORY FOR PLOTTING AT THE END
 epoch=1; epochs=[]; loss_train=[];  loss_val=[]
 
-#------------------------
-#GENERATE DATA
-#------------------------
-N=200
-X1=[]; Y1=[]
-for x1 in np.linspace(-5,5,N):
-	noise=10*5*np.random.uniform(-1,1,size=1)[0]
-	y=2.718*10*x1+100.0+noise
-	X1.append(x1); Y1.append(y)
-input1={}; input1['x1']=X1; input1['y']=Y1
-# X is a list with input sample (dim=number of samples)
+# ---- PARADIGM SELECTION ------------------------------------------------------
+PARADIGM='batch'
+#PARADIGM='mini-batch'
+#PARADIGM='stochastic'
+# ------------------------------------------------------------------------------
 
-#------------------------
-#CONVERT TO MATRICES AND NORMALIZE
-#------------------------
+
+#READ FILE
+with open(INPUT_FILE) as f:
+	input1 = json.load(f)  #read into dictionary
 
 #CONVERT DICTIONARY INPUT AND OUTPUT MATRICES #SIMILAR TO PANDAS DF   
 X=[]; Y=[]
 for key in input1.keys():
 	if(key in X_KEYS): X.append(input1[key])
 	if(key in Y_KEYS): Y.append(input1[key])
-
-
-
-print(type(X1))
-print(len(X1))
-exit()
 
 #MAKE ROWS=SAMPLE DIMENSION (TRANSPOSE)
 X=np.transpose(np.array(X))
@@ -60,8 +78,8 @@ print("X shape:",X.shape); print("Y shape:",Y.shape,'\n')
 XMEAN=np.mean(X,axis=0); XSTD=np.std(X,axis=0) 
 YMEAN=np.mean(Y,axis=0); YSTD=np.std(Y,axis=0) 
 
-#NORMALIZE 
-X=(X-XMEAN)/XSTD;  Y=(Y-YMEAN)/YSTD  
+# #NORMALIZE 
+# X=(X-XMEAN)/XSTD;  Y=(Y-YMEAN)/YSTD  
 
 #------------------------
 #PARTITION DATA
@@ -86,11 +104,19 @@ print("val_idx shape:"  ,val_idx.shape)
 print("test_idx shape:" ,test_idx.shape)
 
 #------------------------
+#SIGMOID
 #MODEL
 #------------------------
+def S(x): 
+	return 1.0/(1.0+np.exp(-x))
+if(model_type=="logistic"): 
+	Y=S(Y)
 def model(x,p):
-	if(model_type=="linear"):   return  p[0]*x+p[1]  
-	if(model_type=="logistic"): return  p[0]+p[1]*(1.0/(1.0+np.exp(-(x-p[2])/(p[3]+0.0001))))
+	linear=p[0]+np.matmul(x,p[1:].reshape(NFIT-1,1))   
+	if(model_type=="linear"):   
+		return linear 
+	if(model_type=="logistic"): 
+		return S(linear)
 
 #FUNCTION TO MAKE VARIOUS PREDICTIONS FOR GIVEN PARAMETERIZATION
 def predict(p):
@@ -109,10 +135,13 @@ def loss(p,index_2_use):
 	training_loss=np.mean(errors**2.0)				#MSE
 	return training_loss
 
+
+#SAVE HISTORY FOR PLOTTING AT THE END
+iteration=0; iterations=[]; loss_train=[];  loss_val=[]
 #------------------------
-#MINIMIZER FUNCTION
+#OPTIMIZER FUNCTION
 #------------------------
-def minimizer(f,xi, algo='GD', LR=0.01):
+def optimizer(f,xi, algo='GD', LR=0.01):
 	global epoch,epochs, loss_train,loss_val 
 	# x0=initial guess, (required to set NDIM)
 	# algo=GD or MOM
@@ -124,18 +153,49 @@ def minimizer(f,xi, algo='GD', LR=0.01):
 	max_iter=5000		#MAX NUMBER OF ITERATION
 	tol=10**-10			#EXIT AFTER CHANGE IN F IS LESS THAN THIS 
 	NDIM=len(xi)		#DIMENSION OF OPTIIZATION PROBLEM
+	#ICLIP=False
 
+	# hyperparameter tuning for stochastic
+	if(PARADIGM=='stochastic'):
+		LR=0.002
+		max_iter=25000
+		#ICLIP=True
+
+        
 	#OPTIMIZATION LOOP
 	while(iteration<=max_iter):
 
 		#-------------------------
-		#DATASET PARITION BASED ON TRAINING PARADIGM
+		#DATASET PARTITION BASED ON TRAINING PARADIGM
 		#-------------------------
 		if(PARADIGM=='batch'):
 			if(iteration==1): index_2_use=train_idx
 			if(iteration>1):  epoch+=1
-		else:
-			print("REQUESTED PARADIGM NOT CODED"); exit()
+                
+		if(PARADIGM=='mini-batch'): # for mini-batch use a 0.5 batch size
+			if(iteration==1):
+				# break data-set into two chunks
+				batch1 = train_idx[:len(train_idx)//2]
+				batch2 = train_idx[len(train_idx)//2:]        
+				if(iteration%2==0): # use batch 1
+					index_2_use=batch1
+				else: # use batch 2
+					index_2_use=batch2
+			if(iteration>1):  epoch+=1
+            
+		if(PARADIGM=='stochastic'):   
+			if(iteration==1): # if on first iteration use the first data point
+				index_2_use=0
+			else:
+				if(index_2_use==train_idx.shape[0]):
+				# or if(index_2_use==len(train_idx)):
+					index_2_use=0 # reset back to the beginning
+				else:
+					index_2_use+=1 # otherwise increment it         
+
+
+# 		else:
+# 			print("REQUESTED PARADIGM NOT CODED"); exit()
 
 		#-------------------------
 		#NUMERICALLY COMPUTE GRADIENT 
@@ -155,13 +215,27 @@ def minimizer(f,xi, algo='GD', LR=0.01):
 			df_dx[i]=grad_i 
 			
 		#TAKE A OPTIMIZER STEP
-		if(algo=="GD"):  xip1=xi-LR*df_dx 
-		if(algo=="MOM"): print("REQUESTED ALGORITHM NOT CODED"); exit()
+		if(algo=="GD"):  xip1=xi-LR*df_dx
+		# fill in GD+momentum ... same formula as above + one more term for momentum
+
+		# momentun includes one more term momentum: alpha (exponential decay factor)*change
+		dx_m1=0
+		alpha = 0.1        
+		if(algo=="MOM"):  xip1=xi-LR*df_dx+alpha*dx_m1
+            
+# 		# EXTRA CREDIT
+# 		if(algo=="RMSprop"): print("REQUESTED ALGORITHM (RMSprop) NOT CODED"); exit()
+# 		if(algo=="ADAM"): print("REQUESTED ALGORITHM (ADAM) NOT CODED"); exit()
+# 		if(algo=="Nelder-Mead"): print("REQUESTED (Nelder-Mead) ALGORITHM NOT CODED"); exit()
+
+		if(iteration==0):
+			print("iteration \t epoch \t MSE_T \t MSE_V")
+		if(iteration%250==0): # print info for every 250th iteration
+			print(iteration,"	",epoch,"	",MSE_T,"	",MSE_V)
 
 		#REPORT AND SAVE DATA FOR PLOTTING
 		if(iteration%1==0):
 			predict(xi)	#MAKE PREDICTION FOR CURRENT PARAMETERIZATION
-			print(iteration,"	",epoch,"	",MSE_T,"	",MSE_V) 
 
 			#UPDATE
 			epochs.append(epoch); 
@@ -174,6 +248,7 @@ def minimizer(f,xi, algo='GD', LR=0.01):
 				break
 
 		xi=xip1 #UPDATE FOR NEXT PASS
+		iterations.append(iteration)
 		iteration=iteration+1
 
 	return xi
@@ -186,17 +261,46 @@ def minimizer(f,xi, algo='GD', LR=0.01):
 #RANDOM INITIAL GUESS FOR FITTING PARAMETERS
 po=np.random.uniform(2,1.,size=NFIT)
 
-#TRAIN MODEL USING SCIPY MINIMIZ 
-p_final=minimizer(loss,po)		
-print("OPTIMAL PARAM:",p_final)
-predict(p_final)
+#TRAIN MODEL USING OPTIMIZER(MINIMIZER)
+# have the optimizer take the loss function as an argument as well as various default options
+#popt=optimizer(loss,po)
+popt = optimizer(loss, po, algo='MOM')
+print("OPTIMAL PARAM:",popt)
+predict(popt)
+    
 
-#------------------------
-#GENERATE PLOTS
-#------------------------
 
-#PLOT TRAINING AND VALIDATION LOSS HISTORY
-def plot_0():
+# #UN-NORMALIZE
+# def unnorm_x(x): 
+# 	return XSTD*x+XMEAN  
+# def unnorm_y(y): 
+# 	return YSTD*y+YMEAN 
+
+# # generate plots
+# #FUNCTION PLOTS
+# if(IPLOT):
+# 	fig, ax = plt.subplots()
+# 	ax.plot(X[train_idx], Y[train_idx], 'o', label='Training set')
+# 	ax.plot(X[test_idx], Y[test_idx], 'x', label='Test set')
+# 	ax.plot(X[val_idx], Y[val_idx], '*', label='Validation set')
+# 	ax.plot(X[train_idx], YPRED_T, '.', c='red', label='Model')
+# 	plt.xlabel('x', fontsize=18)
+# 	plt.ylabel('y', fontsize=18)
+# 	plt.legend()
+# 	plt.show()
+
+# #PARITY PLOTS
+# if(IPLOT):
+# 	fig, ax = plt.subplots()
+# 	ax.plot(model(X[train_idx],popt), Y[train_idx], 'o', label='Training set')
+# 	ax.plot(model(X[val_idx],popt), Y[val_idx], 'o', label='Validation set')
+# 	plt.xlabel('y predicted', fontsize=18)
+# 	plt.ylabel('y data', fontsize=18)
+# 	plt.legend()
+# 	plt.show()
+
+#MONITOR TRAINING AND VALIDATION LOSS  
+if(IPLOT):
 	fig, ax = plt.subplots()
 	ax.plot(epochs, loss_train, 'o', label='Training loss')
 	ax.plot(epochs, loss_val, 'o', label='Validation loss')
@@ -204,57 +308,16 @@ def plot_0():
 	plt.ylabel('loss', fontsize=18)
 	plt.legend()
 	plt.show()
-
-#FUNCTION PLOTS
-def plot_1(xla='x',yla='y'):
-	fig, ax = plt.subplots()
-	ax.plot(X[train_idx]    , Y[train_idx],'o', label='Training') 
-	ax.plot(X[val_idx]      , Y[val_idx],'x', label='Validation') 
-	ax.plot(X[test_idx]     , Y[test_idx],'*', label='Test') 
-	ax.plot(X[train_idx]    , YPRED_T,'.', label='Model') 
-	plt.xlabel(xla, fontsize=18);	plt.ylabel(yla, fontsize=18); 	plt.legend()
-	plt.show()
-
-#PARITY PLOT
-def plot_2(xla='y_data',yla='y_predict'):
-	fig, ax = plt.subplots()
-	ax.plot(Y[train_idx]  , YPRED_T,'*', label='Training') 
-	ax.plot(Y[val_idx]    , YPRED_V,'*', label='Validation') 
-	ax.plot(Y[test_idx]    , YPRED_TEST,'*', label='Test') 
-	plt.xlabel(xla, fontsize=18);	plt.ylabel(yla, fontsize=18); 	plt.legend()
-	plt.show()
-	
-if(IPLOT):
-
-	plot_0()
-	plot_1()
-
-	#UNNORMALIZE RELEVANT ARRAYS
-	X=XSTD*X+XMEAN 
-	Y=YSTD*Y+YMEAN 
-	YPRED_T=YSTD*YPRED_T+YMEAN 
-	YPRED_V=YSTD*YPRED_V+YMEAN 
-	YPRED_TEST=YSTD*YPRED_TEST+YMEAN 
-
-	plot_1()
-	plot_2()
-
-
-
-# #------------------------
-# #DOUBLE CHECK PART-1 OF HW2.1
-# #------------------------
-
-# x=np.array([[3],[1],[4]])
-# y=np.array([[2,5,1]])
-
-# A=np.array([[4,5,2],[3,1,5],[6,4,3]])
-# B=np.array([[3,5],[5,2],[1,4]])
-# print(x.shape,y.shape,A.shape,B.shape)
-# print(np.matmul(x.T,x))
-# print(np.matmul(y,x))
-# print(np.matmul(x,y))
-# print(np.matmul(A,x))
-# print(np.matmul(A,B))
-# print(B.reshape(6,1))
-# print(B.reshape(1,6))
+    
+    
+    
+"""
+Success!
+    Optimal param results for Case 1:
+        OPTIMAL PARAM: [1.0000494  2.71800026 3.14000006]
+        y=2.718*x1+3.14*x2+1
+    Optimal param results for Case 2:
+        OPTIMAL PARAM: [1.00005001 2.71800012 3.14       1.41419999]
+        y=2.718*x1+3.14*x2+1.4142*x3+1
+Both cases produce the expected results for optimal parameters!
+"""
