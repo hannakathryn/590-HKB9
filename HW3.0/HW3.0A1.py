@@ -103,8 +103,6 @@ def build_model():
 # with regard to the validation split
 # to mitigate we can use K-fold CV to partition and evaluate
 
-Chollet, Francois. Deep Learning with Python (p. 87). Manning. Kindle Edition. 
-
 import numpy as np
 k = 4
 
