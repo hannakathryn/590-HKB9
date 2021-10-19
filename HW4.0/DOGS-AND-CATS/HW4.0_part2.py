@@ -486,10 +486,3 @@ for layer_name, layer_activation in zip(layer_names, activations):
     plt.title(layer_name)
     plt.grid(False)
     plt.imshow(display_grid, aspect='auto', cmap='viridis')
-
-
-# In[ ]:
-
-
-
-
