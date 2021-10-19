@@ -118,8 +118,6 @@ one_hot_test_labels = to_categorical(test_labels)
 # the number of output classes has gone from 2 to 46. 
 # dimensionality of the output space is much larger than binary problem
 
-Chollet, Francois. Deep Learning with Python (p. 79). Manning. Kindle Edition. 
-
 from keras import models
 from keras import layers
 
@@ -219,4 +217,3 @@ plt.show()
 # plt.ylabel('Accuracy')
 # plt.legend()
 # plt.show()
-
