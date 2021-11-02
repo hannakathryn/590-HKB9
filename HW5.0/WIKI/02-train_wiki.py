@@ -8,6 +8,8 @@
 # ANLY 590 Fall 2021
 # reference: course code at https://github.com/jh2343/590-CODES
 
+# train CNN and RNN models to predict the topic of a given webpage
+# (from wikipedia) based on its text
 
 # In[2]:
 
